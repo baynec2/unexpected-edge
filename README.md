@@ -1,5 +1,4 @@
-# unforeseen-fortitude
-
+# unexpected-edge
 
 In Malcom Gladwell's book Outliers, he makes the interesting claim that hockey athletes born earlier in the year have a serious advantage over those who had birthdates from July on. The claim is that this benefit translates into an over representation of certain age groups in elite hockey programs.
 
