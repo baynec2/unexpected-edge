@@ -1,0 +1,98 @@
+---
+title: "Unexpected-edge"
+author: "Charlie Bayne"
+date: "4/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+ggplot2::theme_set(ggplot2::theme_bw()+ ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5)))
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+NHL_data = read.csv("../processed_data/Player_data.csv",stringsAsFactors = FALSE) %>% 
+    mutate(birthDate = as.POSIXct(birthDate),
+           year = year(birthDate),
+           month = month(birthDate),
+           day = day(birthDate)) %>% 
+    group_by(month) %>% 
+    tally(name = "NHL_count")
+  
+total_NHL = sum(NHL_data$NHL_count)  
+
+norm_NHL = NHL_data %>% 
+    mutate(norm_NHL = NHL_count / total_NHL * 100)
+
+census_data = read.csv("../raw_data/births/US_births_1994-2003_CDC_NCHS.csv") %>% 
+    group_by(month) %>% 
+    summarise(census_count = sum(births))
+
+total_census = sum(census_data$census_count)
+
+norm_census = census_data %>% 
+    mutate(norm_census = census_count / total_census * 100)
+
+combined = inner_join(norm_NHL,norm_census, by = "month") 
+
+```
+
+
+```{r}
+library(tidyr)
+
+wide = combined %>% 
+    select(month,norm_NHL,norm_census) %>% 
+    gather("Population","Percentage", norm_NHL, norm_census) %>% 
+    mutate(part_of_year = ifelse(month <= 3, "first_quarter",
+                                 ifelse(month > 3  & month <= 6, "second_quarter",
+                                        ifelse(month > 6 & month <= 9, "third_quarter",
+                                               ifelse(month > 9, "fourth_quarter","")
+                                               )
+                                        )
+                                 )
+           )%>% 
+    group_by(part_of_year,Population) %>% 
+    summarise(mean = mean(Percentage), sd = sd(Percentage))
+    
+wide$part_of_year = factor(wide$part_of_year,levels = c('first_quarter','second_quarter','third_quarter','fourth_quarter'),ordered = TRUE)
+
+p1 = ggplot(wide,aes(part_of_year,mean,fill = Population))+
+    geom_bar(stat = "identity",position = "dodge")+
+    geom_errorbar(aes(ymax = mean + sd, ymin = mean -sd),position = "dodge")+
+    ylab("Average Percent")+
+    ggtitle("Differences in Birth Months Between NHL Players and US Population")
+p1
+```
+
+
+```{r}
+
+stat = combined %>% 
+    select(month,NHL_count,census_count,norm_census) %>% 
+    mutate(part_of_year = ifelse(month <= 3, "first_quarter",
+                                 ifelse(month > 3  & month <= 6, "second_quarter",
+                                        ifelse(month > 6 & month <= 9, "third_quarter",
+                                               ifelse(month > 9, "fourth_quarter","")
+                                               )
+                                        )
+                                 )
+           ) %>% 
+    select(-month,-part_of_year)
+
+
+obsfreq = stat$NHL_count
+
+nullprobs = stat$norm_census / 100
+
+chisq.test(obsfreq,p=nullprobs)
+
+
+
+```
+
